@@ -89,6 +89,9 @@ data/Balanced_Data_PCA.csv: 5 PCA components of balanced_data.csv (data/New_PCA_
 
 ## How to run
 
+The CSV files (about 590 MB) are stored in Git LFS. Install [Git LFS](https://git-lfs.com) and run
+`git lfs install` before you clone; in a clone made without it, run `git lfs pull` to replace the pointer files.
+
 The code was written in 2023 for Python 3 with TensorFlow 2. Install the packages:
 
 ```bash

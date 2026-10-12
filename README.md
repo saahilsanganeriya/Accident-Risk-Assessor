@@ -1,245 +1,155 @@
 # Accident Risk Assessor
 
-A machine learning project that predicts car accident risk in Maryland using 155,108 data points from the Montgomery County crash reporting dataset. The system analyzes situational factors (weather, road conditions, traffic) and static features (vehicle condition) to provide personalized accident risk assessments.
+A team project for CS 4641 (Machine Learning) at Georgia Tech, spring 2023. Five students tried to predict whether a
+crash happens, given a place, a time, and road, weather, driver and vehicle details. The data is the public crash
+reports of Montgomery County, Maryland.
 
-## 🎯 Project Overview
+## The result
 
-As of 2018, global annual road traffic deaths reached 1.35 million, with 38,000 fatalities and $55 billion in associated costs in the United States alone. This project develops a car accident risk assessor for Maryland to help predict and potentially prevent accidents.
+**On the fair test, the random forest scored 67.7% accuracy, below the 75.0% of always answering "no crash".** It was
+trained on 155,707 real crash records plus three times as many "random negatives": real crash records with the
+location, the time of day or the date swapped for another record's. Three of every four test rows are negatives, so a
+model that always says "no crash" scores 75.0%. The forest found 651 of the 31,141 real crashes (2%). No model in the
+project did better than that baseline on random negatives.
 
-**🎥 Project Presentation**: [YouTube Video](https://www.youtube.com/watch?v=FM7b4zGDyb0)
-## 📊 Dataset
+**The 98% figure comes from a different set of negatives.** The same random forest scored 98.2% when the negatives
+were built by hand: each feature drawn from a probability distribution meant to match the real data, with a few
+linked pairs such as vehicle make and model. Those rows are easy to tell apart from real records: 81.5% of them lie outside a latitude/longitude box that holds 96.2% of the real crashes. Location
+alone gives most of them away. So the 98% shows how well the model spots generated rows, not how well it predicts
+crashes.
 
-- **Source**: [Montgomery County Crash Reporting Data](https://catalog.data.gov/dataset/crash-reporting-drivers-data)
-- **Size**: 155,108 data points
-- **Coverage**: Baltimore, Maryland area
-- **Features**: 28 original features reduced to 5 using PCA (retaining 99% variance)
+The report flags both problems in its own words: the random-negative model "almost never correctly guesses
+accidents" (p. 3), and a model on the hand-built set "may be overfitting to the dataset due to how the non-accident
+samples were created" (p. 5).
 
-## 📚 Research Context
+## Results
 
-This project builds upon existing literature:
-- **Wilson (2018)**: Utah dataset analysis highlighting real-time data importance and geographic risk mapping
-- **Cigdem et al. (2018)**: Class imbalance solutions and confusion matrix evaluation methods
-- **Al-Mistarehi et al. (2022)**: Performance measurement methodologies for traffic crash prediction
+Each model trains on 80% of a dataset and is scored on the other 20% (the neural network: 67% and 33%). "Crashes found"
+is recall on the crash class. Report page numbers refer to `CS-4641-Project-Report.pdf`.
 
-Based on corroboration found in the literature on the importance of real-time data, we developed models that can provide personalized risk assessments given real-time location, driver, and weather details.
-## 🏗️ Project Structure
+**Random negatives** (`data/balanced_data.csv`, 155,707 crashes and 467,121 negatives):
+
+| Model | Accuracy | Crashes found | Source |
+|---|---:|---:|---|
+| Always answer "no crash" | 75.0% | 0% | 93,425 of the 124,566 test rows are negatives (support column of the random-forest output) |
+| Random forest, 100 trees | 67.7% | 2% | `modelling/Metrics for Random Forest model with balanced_data.csv.png`; report p. 3 |
+| XGBoost, all features | 71.6% | 17% (precision 40%) | report p. 4 (no screenshot in the repo) |
+| XGBoost, 5 PCA components | 74.9% | 0% | `modelling/Metrics for XGBoost model with balanced_data.csv.png`; report p. 4 |
+| LightGBM | 75.0% | 0% | `modelling/Metrics for light GBM model with balanced_data.csv.png` |
+| Neural network, 27 → 1 | 74.9% | not reported | `modelling/ml-project-nn.png`; report p. 5 |
+| Neural network on PCA data | about 50% | not reported | report p. 5 |
+
+**Hand-built negatives** (`data/balanced_nonrandom_data.csv`, 155,707 crashes and 477,124 negatives):
+
+| Model | Accuracy | Crashes found | Source |
+|---|---:|---:|---|
+| Random forest, 100 trees | 98.2% | 95% | `modelling/Metrics for Random Forest model with balanced_nonrandom_data.csv.png`; report p. 4 |
+| LightGBM | 98.1% | 94% | `modelling/Metrics for light GBM model with balanced_nonrandom_data.csv.png` |
+| XGBoost | 86.6% | 56% | `modelling/Metrics for XGBoost model with balanced_nonrandom_data.csv.png`; report p. 5 |
+| Neural network, 27 → 1 | 75.5% | not reported | report p. 5 |
+
+Notes on reading these numbers:
+
+- Three of every four rows are negatives, so accuracy near 75% can mean a model learned nothing. On random negatives,
+  LightGBM answered "no crash" for every test row and XGBoost on PCA data for all but 10 (their confusion matrices show
+  it). The neural network's 74.9% and 75.5% are close to the share of negatives in its two datasets (75.0% and 75.4%).
+- `modelling/gbdt.py` as committed trains XGBoost on 5 PCA components. The report does not say whether the 86.6% run
+  used them.
+- The 81.5% and 96.2% figures above come from the two committed CSVs: the box spans the 1st to 99th percentile of the
+  real crashes' latitude and longitude (38.965–39.275° N, 76.936–77.315° W). 3.8% of real crashes and 3.8% of random
+  negatives lie outside it.
+
+## The data
+
+- **Source:** Montgomery County's [Crash Reporting – Drivers Data](https://catalog.data.gov/dataset/crash-reporting-drivers-data).
+  The report and one file name call the area "Baltimore". The records are Montgomery County's, next to Washington,
+  D.C. Their median point is 39.08° N, 77.11° W. The location filter in `data/Scripts/csv_cleaner.ipynb` keeps
+  38.8–39.5° N and 76.8–77.7° W, which leaves Baltimore city outside.
+- **Size:** `data/Prev Cleaning Stages/Original_Data.csv` holds 155,811 rows and 43 columns. After the location filter
+  and cleaning, 155,707 crash records remain (the report's introduction says 155,108).
+- **Features:** columns that describe the crash after it happened (collision type, severity, driver at fault and so on)
+  were dropped. 24 columns remain in `data/Accident Data/Column_Cleaned_Data.csv`. The date and time became day of
+  week, day of year, week of year, month, year and minute of the day.
+- **PCA:** `data/Scripts/pca.py` keeps the fewest components that hold 99% of the variance. On the crash records that
+  is 5 (`data/Accident Data/Accident_PCA_Data.csv`). It centres the columns but does not scale them, so columns with
+  large ranges dominate the components.
+
+Pipeline, as committed (the notebook and `pca.py` write `output.csv`; the stage files were renamed by hand):
 
 ```
-Accident-Risk-Assessor/
-├── data/                           # Dataset and preprocessing
-│   ├── Accident Data/             # Processed datasets
-│   ├── Scripts/                   # Data processing scripts
-│   ├── balanced_data.csv          # Random sampling method dataset
-│   └── balanced_nonrandom_data.csv # Non-random sampling method dataset
-├── modelling/                     # Machine learning models
-│   ├── randomforest.py           # Random Forest implementation
-│   ├── gbdt.py                   # XGBoost implementation
-│   ├── neural-net.py             # Neural Network implementation
-│   └── location-dbscan.py        # DBSCAN clustering
-├── visualizations/               # Data analysis and charts
-│   ├── single_feature_bar_graphs/ # Feature frequency analysis
-│   ├── scatter_plots/            # Geographic crash distribution
-│   └── frequency_finder.py       # Visualization utilities
-├── images/                       # Project documentation images
-└── index.html                    # Web presentation
+Original_Data.csv (155,811 rows) ──csv_cleaner.ipynb: location filter──► Baltimore_Area.csv (155,707 rows)
+  ──csv_cleaner.ipynb: column clean-up──► Cleaned_Data.csv ──► Accident Data/Column_Cleaned_Data.csv (24 columns)
+Numerical_Data.csv (categories as integer codes; the script that made it is not in the repo)
+Numerical_Data + Column_Cleaned_Data ──combination_numerical_and_text.py──► normalized_numerical_data.csv (crashes)
+normalized_numerical_data ──nonaccidentscript.py─────────► data/balanced_data.csv (random negatives, 3 per crash)
+                          ──(generator not in the repo)──► data/balanced_nonrandom_data.csv (hand-built negatives)
+                          ──pca.py───────────────────────► Accident_PCA_Data.csv (5 components)
+data/Balanced_Data_PCA.csv: 5 PCA components of balanced_data.csv (data/New_PCA_Data.csv is an identical copy)
 ```
 
-## 📈 Methodology
+## How to run
 
-### 1. Data Preprocessing
-- **Feature Selection**: Removed post-accident features (collision severity, driver fault, etc.) to focus on predictive rather than descriptive information
-- **Dimensionality Reduction**: Applied PCA to reduce from 28 to 5 features while retaining 99% of variance
-- **Data Cleaning**: Standardized categorical variables and handled missing values
+The code was written in 2023 for Python 3 with TensorFlow 2. Install the packages:
 
-The PCA data is available in: `data/Accident Data/Accident_PCA_Data.csv`
-### 2. Non-Accident Data Generation
-To address class imbalance, we implemented two approaches for generating synthetic non-accident data:
-
-**Method 1: Random Sampling**
-- Randomly select accident record as base
-- Alter one of: road segment, hour of day, or day of year
-- Generate 3x more non-accident than accident samples (75% vs 25%)
-- Available in: `data/balanced_data.csv`
-
-**Method 2: Non-Random Sampling** 
-- Use realistic probability distributions for features
-- Maintain feature relationships (e.g., Vehicle Make ↔ Vehicle Model)
-- Account for real-world patterns (rush hour timing, weather distributions)
-- Available in: `data/balanced_nonrandom_data.csv`
-### 3. Machine Learning Models
-
-#### Unsupervised Learning
-- **DBSCAN Clustering**: Location-based risk zone identification
-  - Parameters: ε=0.03, min_points=1000
-  - Applied to latitude/longitude coordinates
-  - Result: Single cluster following Baltimore geography
-
-#### Supervised Learning
-1. **Random Forest Classifier**
-   - 100 estimators, handles mixed data types
-   - Robust against overfitting
-   - Suitable for imbalanced datasets
-   - Implementation: `modelling/randomforest.py`
-
-2. **XGBoost (Gradient Boosted Decision Trees)**
-   - High-performance gradient boosting
-   - Tested with and without PCA preprocessing
-   - Implementation: `modelling/gbdt.py`
-
-3. **Neural Network**
-   - 2-layer architecture: [27→1] neurons
-   - Activation: tanh (hidden), ReLU (output)
-   - Optimizer: Stochastic Gradient Descent
-   - Training: 3 epochs
-   - Implementation: `modelling/neural-net.py`
-
-## 🛠️ Installation
-
-### Prerequisites
-- Python 3.7+
-- Required packages:
 ```bash
-pip install pandas numpy scikit-learn xgboost tensorflow matplotlib seaborn
+pip install "pandas<2" numpy scikit-learn xgboost lightgbm tensorflow matplotlib
 ```
 
-### Setup
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/Accident-Risk-Assessor.git
-cd Accident-Risk-Assessor
-```
+`combination_numerical_and_text.py` calls `Series.dt.weekofyear`, which pandas deprecated in 1.1, so use pandas 1.x.
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt  # You may need to create this file
-```
-## 🚀 Usage
+Models (run from `modelling/`; each prints a confusion matrix and accuracy):
 
-### Running Models
-
-**Random Forest:**
 ```bash
 cd modelling
-python randomforest.py
+python randomforest.py     # reads ../data/balanced_nonrandom_data.csv; change it to balanced_data.csv for random negatives
+python lgbm.py             # same input file as randomforest.py
+python gbdt.py             # XGBoost on 5 PCA components, hand-built negatives
+python neural-net.py       # random negatives, 3 epochs
+python location-dbscan.py  # DBSCAN (eps 0.03, min 1000 points) on a 30% sample of crash locations; slow
 ```
 
-**XGBoost:**
-```bash
-cd modelling
-python gbdt.py
+With scikit-learn 1.2.2 and pandas 1.5.3, `randomforest.py` prints the same confusion matrices and accuracies as the
+committed screenshots: 0.9823650714641258 as committed, and 0.6772795144742546 with `balanced_data.csv`.
+
+Data scripts: `data/Scripts/pca.py` runs from the repo root. `combination_numerical_and_text.py` and
+`nonaccidentscript.py` read and write bare file names, so run them inside `data/Accident Data/` (the committed
+`balanced_data.csv` lives one level up, in `data/`). `nonaccidentscript.py` is slow: it checks each new row against
+every crash record. The plotting scripts in `visualizations/` and `csv_cleaner.ipynb` read the raw data.gov download
+or paths on the authors' machines. Set `FILE_PATH` (or `file_path`) before running them.
+
+## Who built what
+
+Five students built this project. The contribution table on page 8 of the report names each member and their part.
+
+- **Saahil Sanganeriya** built the random negatives with a teammate (`data/Scripts/nonaccidentscript.py`,
+  `data/balanced_data.csv`), trained the random forest (`modelling/randomforest.py`) and ran the LightGBM comparison
+  (`modelling/lgbm.py`). He also wrote the introduction and problem definition and took the data-cleaning tasks in the
+  project timeline.
+- **The other four members** cleaned and formatted the data, built the hand-built negatives, ran PCA, trained XGBoost
+  and the neural network, ran DBSCAN, made the project page (`index.html`, with `_config.yml`, `layouts/` and
+  `assets/`) and the presentation video, and wrote the final report.
+
+Every commit in this repo is Saahil's because he uploaded the team's work here in September 2023.
+
+Presentation video (uploaded by a teammate): <https://www.youtube.com/watch?v=FM7b4zGDyb0>
+
+## Layout
+
+```
+CS-4641-Project-Report.pdf   final report (printed from the team's project page)
+index.html, _config.yml,     a copy of the team's project page (a GitHub Pages site)
+  layouts/, assets/
+data/                        CSVs at each stage (see the pipeline above) and data/Scripts/
+modelling/                   randomforest.py, gbdt.py (XGBoost), lgbm.py, neural-net.py, location-dbscan.py,
+                             the metric screenshots, and test-neural-net.py (a Keras check on an unrelated public dataset)
+visualizations/              frequency and location plots of the raw data, and the scripts that drew them
+images/                      the team's timeline and contribution tables
 ```
 
-**Neural Network:**
-```bash
-cd modelling
-python neural-net.py
-```
-
-**DBSCAN Clustering:**
-```bash
-cd modelling
-python location-dbscan.py
-```
-
-### Data Processing
-```bash
-cd data/Scripts
-python pca.py                    # Apply PCA transformation
-python nonaccidentscript.py     # Generate non-accident data
-```
-
-### Generating Visualizations
-```bash
-cd visualizations
-python frequency_finder.py      # Create feature frequency charts
-```
-## 📊 Results
-
-### Model Performance Comparison
-
-| Model | Dataset | Accuracy | Precision | Recall | Notes |
-|-------|---------|----------|-----------|--------|-------|
-| Random Forest | Balanced Random | 67.7% | - | 0.90 (non-accident), 0.02 (accident) | Poor accident detection |
-| Random Forest | Balanced Non-Random | **98.0%** | - | 0.99 (non-accident), 0.95 (accident) | Excellent performance |
-| XGBoost | Balanced Random | 71.6% | 0.40 | 0.17 | Struggles with accidents |
-| XGBoost | Balanced Non-Random | **95.0%** | - | Balanced performance | Strong improvement |
-| Neural Network | Balanced Random | 75.0% | - | - | Moderate performance |
-| Neural Network | Balanced Non-Random | 75.0% | - | - | Consistent across datasets |
-| Neural Network | PCA Data | 50.0% | - | - | PCA degraded performance |
-
-### Key Findings
-- **Non-random sampling significantly outperforms random sampling** across all models
-- Random Forest achieved the best performance (98% accuracy) with non-random data
-- XGBoost showed dramatic improvement with non-random data
-- Neural networks maintained consistent ~75% accuracy regardless of dataset
-- PCA preprocessing hurt neural network performance
-
-### DBSCAN Clustering Results
-![DBSCAN Clustering](assets/dbscan-lat-long-2.png)
-*Geographic clustering shows single cluster following Baltimore area geography (ε=0.03, min_points=1000)*
-### Visualizations
-
-![Accident Time Distribution](visualizations/single_feature_bar_graphs/accident_times.png)
-*Rush hour peaks clearly visible in accident timing - this insight informed our non-random sampling approach*
-
-## 🔄 Future Improvements
-
-1. **Enhanced Non-Accident Data Generation**
-   - Improve randomization process based on literature best practices
-   - Better distinguish positive vs negative examples on high-frequency roads
-
-2. **Geographic Expansion**
-   - Extend beyond Baltimore/Maryland to prevent location-specific overfitting
-   - Test model generalization across different regions
-
-3. **Additional Models**
-   - Implement deep learning architectures
-   - Explore ensemble methods combining multiple approaches
-   - Real-time prediction capabilities
-
-4. **Feature Engineering**
-   - Incorporate more real-time data sources
-   - Add weather API integration
-   - Include traffic density metrics
-
-## 🎓 Conclusions
-
-Through the implementation of this project, our team was able to work with multiple machine learning models on a real-world dataset. Observing the various accuracies and metrics of our different models allowed us to create a greater understanding of machine learning concepts and the importance of data quality in model performance.
-
-Key learnings include:
-- The critical impact of non-accident data generation methods on model performance
-- The challenges of working with imbalanced datasets in real-world scenarios
-- The importance of feature engineering and domain knowledge in ML projects
-
-## 🤝 Contributors
-
-![Project Timeline](images/contribution1.png)
-![Team Contributions](images/contribution2.png)
-
-## 📄 References
+## References
 
 1. World Health Organisation. Global status report on road safety 2018; 17th June 2018; Available at https://www.who.int/publications/i/item/9789241565684
 2. Centers for Disease Control and Prevention. WISQARS (Web-based Injury Statistics Query and Reporting System) [online]; 2020. Available at https://www.cdc.gov/injury/wisqars/index.html
 3. Daniel Wilson. Using Machine Learning to Predict Car Accident Risk; 3rd May 2018; Available at https://medium.com/geoai/using-machine-learning-to-predict-car-accident-risk-4d92c91a7d57
 4. Cigdem, A., and Cevher Ozden. "Predicting the severity of motor vehicle accident injuries in Adana-Turkey using machine learning methods and detailed meteorological data." Int. J. Intell. Syst. Appl. Eng 6.1 (2018): 72-79.
 5. Al-Mistarehi, B. W., et al. "Using machine learning models to forecast severity level of traffic crashes by r studio and arcgis. front." Machine Learning Applications in Civil Engineering 16648714 (2022): 31.
-
-## 📊 Appendix: Additional Visualizations
-
-### Geographic Distribution
-![Crash Locations](visualizations/scatter_plots/lat_long_crashes.png)
-*Geographic distribution of crashes in Baltimore area*
-
-### Feature Analysis
-![Collision Types](visualizations/single_feature_bar_graphs/Collision Type.png)
-*Distribution of collision types*
-
-![Weather Conditions](visualizations/single_feature_bar_graphs/Weather.png)
-*Weather conditions during crashes*
-
-![Speed Limits](visualizations/single_feature_bar_graphs/Speed Limit.png)
-*Speed limit distribution at crash locations*
-
----
-
-**Note**: This project was developed as part of a machine learning course and demonstrates various ML techniques applied to real-world crash data. The models show promising results but require further validation before deployment in safety-critical applications.

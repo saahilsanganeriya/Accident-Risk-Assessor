@@ -3,7 +3,7 @@ import numpy as np
 import random
 from matplotlib import pyplot as plt
 
-FILE_PATH = '/home/mroglan/gt/CS 4641/project/data/Column_Cleaned_Data.csv' # Your file path
+FILE_PATH = '../data/Accident Data/Column_Cleaned_Data.csv' # Your file path
 EPS = 0.03
 MIN_PTS = 1000
 PROPORTION = 0.3

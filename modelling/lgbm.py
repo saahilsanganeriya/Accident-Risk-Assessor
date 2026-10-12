@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 import lightgbm as lgb
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
-filepath = r'C:\Users\saahi\Documents\Saahil\college\spring23\cs4641\CS-4641-Project\data\balanced_nonrandom_data.csv'
+filepath = '../data/balanced_nonrandom_data.csv'
 data = pd.read_csv(filepath)
 
 print('1')
